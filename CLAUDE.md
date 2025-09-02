@@ -15,17 +15,20 @@ pip install -e .
 
 ### Running the System
 ```bash
-# Basic flare evaluation
-python run_evaluator.py data/sample_data.csv --plot output/result.png
+# Basic flare evaluation (single executable)
+python flare.py evaluate data/sample_data.csv --pixel-pitch 2.4
 
 # Generate synthetic test data  
-python generate_data.py
+python flare.py generate output.csv --size 512 --lights 3
 
-# Test the modular structure
-python test_new_structure.py
-
-# PNG export showcase
-python showcase_png_export.py
+# Evaluate with all options
+python flare.py evaluate data.csv \
+  --pixel-pitch 3.76 \
+  --offset 64 \
+  --signal-threshold 10 \
+  --output results.json \
+  --plot visualization.png \
+  --matplotlib --mpl-plot all
 ```
 
 ### Development and Testing
@@ -64,10 +67,26 @@ The flare evaluation system is built around a modular architecture with five mai
 3. **Processing**: Core algorithms detect flare regions and calculate quality metrics
 4. **Output**: Multiple formats including PNG visualizations, JSON results, and text reports
 
-### Key Algorithms
-- **Flare Detection**: Uses offset-corrected thresholding to identify flare regions
-- **Quality Assessment**: Combines severity score, coverage percentage, and spatial distribution into A-F grades
-- **Pattern Generation**: Implements exponential decay models for realistic flare simulation
+### Key Algorithms & Metrics
+
+#### Three Resolution-Independent Metrics
+1. **F_raw = Σ(pixel_value - offset) / (N × pixel_area_µm²)**
+   - Raw flare intensity in ADU/µm²
+   - Shows absolute flare per unit physical area
+
+2. **F_norm = F_raw_flare / F_raw_direct_illumination**
+   - Dimensionless ratio (resolution-independent)
+   - Normalizes against reference illumination
+
+3. **F_final = F_norm × (N_flare / N_sensor)^β**
+   - Coverage-weighted index (β = 0.5 default)
+   - Penalizes widespread flare
+
+#### Pixel Classification
+- **Background**: value ≤ (offset + signal_threshold)
+- **Flare**: (offset + signal_threshold) < value ≤ direct_illumination_threshold
+- **Direct Light**: direct_illumination_threshold < value ≤ light_threshold  
+- **Light Source**: value > light_threshold
 
 ## Configuration System
 

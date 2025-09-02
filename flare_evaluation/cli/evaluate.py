@@ -10,6 +10,7 @@ import numpy as np
 
 from ..core.evaluator import FlareEvaluator
 from ..visualization.visualizer import FlareVisualizer
+from ..visualization.matplotlib_plotter import MatplotlibPlotter
 from ..config.config_manager import ConfigManager
 from ..config.presets import PresetManager
 from ..utils.validators import DataValidator
@@ -76,6 +77,23 @@ Examples:
     png_group.add_argument('--multi-layout', nargs=2, type=int, metavar=('ROWS', 'COLS'),
                           default=[2, 2],
                           help='Layout for multi-panel export (default: 2 2)')
+    
+    # Matplotlib plotting options
+    mpl_group = parser.add_argument_group('Matplotlib plotting options')
+    mpl_group.add_argument('--matplotlib', action='store_true',
+                          help='Use matplotlib for advanced plotting')
+    mpl_group.add_argument('--mpl-plot', 
+                          choices=['heatmap', 'distribution', 'radial', 'quality', '3d', 'all'],
+                          help='Type of matplotlib plot to generate')
+    mpl_group.add_argument('--mpl-style', default='seaborn-v0_8',
+                          help='Matplotlib style to use')
+    mpl_group.add_argument('--mpl-figsize', nargs=2, type=int, metavar=('WIDTH', 'HEIGHT'),
+                          default=[12, 8],
+                          help='Figure size for matplotlib plots (default: 12 8)')
+    mpl_group.add_argument('--mpl-show', action='store_true',
+                          help='Display matplotlib plots interactively')
+    mpl_group.add_argument('--mpl-save-prefix', default='matplotlib_',
+                          help='Prefix for saved matplotlib plots')
     
     # Processing options
     proc_group = parser.add_argument_group('processing options')
@@ -226,6 +244,105 @@ Examples:
                 
         except Exception as e:
             print(f"Error generating visualization: {e}", file=sys.stderr)
+    
+    # Generate matplotlib plots if requested
+    if args.matplotlib or args.mpl_plot:
+        try:
+            if args.verbose:
+                print("Generating matplotlib plots...")
+            
+            # Initialize matplotlib plotter
+            plotter = MatplotlibPlotter(
+                style=args.mpl_style,
+                figsize=tuple(args.mpl_figsize),
+                dpi=args.dpi
+            )
+            
+            # Prepare results with config and metrics for plotting
+            results['config'] = config_manager.export_section('evaluation')
+            results['metrics'] = evaluator.get_detailed_metrics()
+            
+            # Determine output directory from plot path or use current directory
+            if args.plot:
+                output_dir = str(Path(args.plot).parent)
+            else:
+                output_dir = '.'
+            
+            # Generate requested plots
+            plots_to_generate = []
+            if args.mpl_plot == 'all':
+                plots_to_generate = ['heatmap', 'distribution', 'radial', 'quality', '3d']
+            elif args.mpl_plot:
+                plots_to_generate = [args.mpl_plot]
+            else:
+                # Default to heatmap if --matplotlib is used without --mpl-plot
+                plots_to_generate = ['heatmap']
+            
+            for plot_type in plots_to_generate:
+                save_path = f"{output_dir}/{args.mpl_save_prefix}{plot_type}.png"
+                
+                if plot_type == 'heatmap':
+                    if args.verbose:
+                        print(f"  - Creating heatmap: {save_path}")
+                    plotter.plot_flare_heatmap(
+                        data, results, 
+                        colormap=args.colormap or 'viridis',
+                        save_path=save_path,
+                        show=args.mpl_show
+                    )
+                    
+                elif plot_type == 'distribution':
+                    if args.verbose:
+                        print(f"  - Creating distribution plot: {save_path}")
+                    plotter.plot_intensity_distribution(
+                        data, results,
+                        bins=100,
+                        log_scale=True,
+                        save_path=save_path,
+                        show=args.mpl_show
+                    )
+                    
+                elif plot_type == 'radial':
+                    if args.verbose:
+                        print(f"  - Creating radial profile: {save_path}")
+                    # Find brightest point
+                    max_idx = np.unravel_index(np.argmax(data), data.shape)
+                    center = (max_idx[1], max_idx[0])  # (x, y) format
+                    plotter.plot_radial_profile(
+                        data, center,
+                        save_path=save_path,
+                        show=args.mpl_show
+                    )
+                    
+                elif plot_type == 'quality':
+                    if args.verbose:
+                        print(f"  - Creating quality metrics: {save_path}")
+                    if 'metrics' in results:
+                        plotter.plot_quality_metrics(
+                            results['metrics'],
+                            save_path=save_path,
+                            show=args.mpl_show
+                        )
+                    
+                elif plot_type == '3d':
+                    if args.verbose:
+                        print(f"  - Creating 3D surface: {save_path}")
+                    plotter.plot_3d_surface(
+                        data,
+                        downsample=8,
+                        colormap=args.colormap or 'viridis',
+                        save_path=save_path,
+                        show=args.mpl_show
+                    )
+            
+            # Clean up matplotlib resources
+            plotter.close_all()
+            
+            if args.verbose:
+                print("Matplotlib plots generated successfully")
+                
+        except Exception as e:
+            print(f"Error generating matplotlib plots: {e}", file=sys.stderr)
     
     # Save detailed results if requested
     if args.results:

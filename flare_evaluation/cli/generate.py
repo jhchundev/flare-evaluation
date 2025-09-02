@@ -123,10 +123,19 @@ Examples:
     if args.no_hot_pixels:
         config_manager.set('generation.enable_hot_pixels', False)
     
-    # Create generator
+    # Create generator with proper mapping
+    sensor_config = config_manager.export_section('sensor')
+    generation_config = config_manager.export_section('generation')
+    
+    # Map sensor config to generator expected keys
     gen_config = {
-        **config_manager.export_section('sensor'),
-        **config_manager.export_section('generation'),
+        'sensor_size': sensor_config.get('size', 512),
+        'bit_depth': sensor_config.get('bit_depth', 10),
+        'max_value': 2 ** sensor_config.get('bit_depth', 10) - 1,
+        'offset': sensor_config.get('offset', 64),
+        'noise_std': sensor_config.get('noise_std', 2),
+        'light_intensity': 2 ** sensor_config.get('bit_depth', 10) - 1,
+        **generation_config,
     }
     generator = FlareDataGenerator(gen_config)
     
