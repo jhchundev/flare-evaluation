@@ -27,8 +27,18 @@ except ImportError:
         'beta': 0.5
     }
 
-def process_grayscale(filepath):
-    """Process grayscale sensor data - evaluate and visualize."""
+def process_grayscale(filepath, output_json=None, output_image=None):
+    """Process grayscale sensor data - evaluate and visualize.
+
+    Parameters
+    ----------
+    filepath : str or Path
+        Input CSV file containing grayscale pixel values.
+    output_json : str or Path, optional
+        Path for saving metrics JSON. Uses CONFIG value when omitted.
+    output_image : str or Path, optional
+        Path for saving visualization image. Uses CONFIG value when omitted.
+    """
     print(f"\n📊 Processing grayscale data: {filepath}")
     
     # Load data
@@ -108,7 +118,8 @@ def process_grayscale(filepath):
         'flare_coverage_percent': coverage_ratio * 100
     }
     
-    output_json = CONFIG.get('output_json', 'output/results.json')
+    if output_json is None:
+        output_json = CONFIG.get('output_json', 'output/results.json')
     Path(output_json).parent.mkdir(parents=True, exist_ok=True)
     with open(output_json, 'w') as f:
         json.dump(results, f, indent=2)
@@ -132,15 +143,26 @@ def process_grayscale(filepath):
     img[light_mask] = [255, 0, 0]        # Red for light sources
     
     # Save image
-    output_image = CONFIG.get('output_image', 'output/visualization.png')
+    if output_image is None:
+        output_image = CONFIG.get('output_image', 'output/visualization.png')
     Path(output_image).parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(img).save(output_image)
     print(f"✅ Visualization saved to: {output_image}")
     
     return results
 
-def process_rgb(filepath):
-    """Process RGB sensor data - evaluate and visualize."""
+def process_rgb(filepath, output_json=None, output_image=None):
+    """Process RGB sensor data - evaluate and visualize.
+
+    Parameters
+    ----------
+    filepath : str or Path
+        Input CSV file with space-separated R G B values per cell.
+    output_json : str or Path, optional
+        Path for metrics JSON output. Uses CONFIG when omitted.
+    output_image : str or Path, optional
+        Path for visualization PNG. Uses CONFIG when omitted.
+    """
     print(f"\n📊 Processing RGB data: {filepath}")
     
     # Load RGB data
@@ -254,7 +276,8 @@ def process_rgb(filepath):
     print("="*60)
     
     # Save JSON results
-    output_json = CONFIG.get('output_json', 'output/results.json')
+    if output_json is None:
+        output_json = CONFIG.get('output_json', 'output/results.json')
     Path(output_json).parent.mkdir(parents=True, exist_ok=True)
     with open(output_json, 'w') as f:
         json.dump(results, f, indent=2)
@@ -262,30 +285,27 @@ def process_rgb(filepath):
     
     # Create RGB visualization
     print(f"\n🎨 Creating RGB visualization...")
-    
-    # Use luminance for classification
+
+    # Normalize channels to displayable range
+    r_norm = np.clip((r_data / 1023) * 255, 0, 255).astype(np.uint8)
+    g_norm = np.clip((g_data / 1023) * 255, 0, 255).astype(np.uint8)
+    b_norm = np.clip((b_data / 1023) * 255, 0, 255).astype(np.uint8)
+    img = np.stack([r_norm, g_norm, b_norm], axis=-1)
+
+    # Classification using luminance
     lum_data = 0.299 * r_data + 0.587 * g_data + 0.114 * b_data
     flare_mask = (lum_data > offset + signal_threshold) & (lum_data <= direct_threshold)
     direct_mask = (lum_data > direct_threshold) & (lum_data <= light_threshold)
     light_mask = lum_data > light_threshold
-    
-    # Create true-color RGB image with enhancements
-    r_norm = np.clip((r_data / 1023) * 255, 0, 255).astype(np.uint8)
-    g_norm = np.clip((g_data / 1023) * 255, 0, 255).astype(np.uint8)
-    b_norm = np.clip((b_data / 1023) * 255, 0, 255).astype(np.uint8)
-    
-    img = np.stack([r_norm, g_norm, b_norm], axis=-1)
-    
-    # Enhance flare regions
-    img[flare_mask, 0] = np.minimum(255, img[flare_mask, 0] * 1.2).astype(np.uint8)
-    img[flare_mask, 1] = np.minimum(255, img[flare_mask, 1] * 1.2).astype(np.uint8)
-    img[flare_mask, 2] = (img[flare_mask, 2] * 0.8).astype(np.uint8)
-    
-    # Mark light sources
-    img[light_mask] = [255, 255, 255]
-    
+
+    # Color code regions (same scheme as grayscale)
+    img[flare_mask] = [255, 255, 0]      # Yellow for flare
+    img[direct_mask] = [255, 165, 0]     # Orange for direct illumination
+    img[light_mask] = [255, 0, 0]        # Red for light sources
+
     # Save image
-    output_image = CONFIG.get('output_image', 'output/visualization.png')
+    if output_image is None:
+        output_image = CONFIG.get('output_image', 'output/visualization.png')
     Path(output_image).parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(img).save(output_image)
     print(f"✅ RGB visualization saved to: {output_image}")
