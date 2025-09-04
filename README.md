@@ -8,7 +8,7 @@ This project provides a simple tool to evaluate image sensor flare from a 512x51
 2. Run the evaluator:
 
 ```bash
-python flare_evaluator.py your_data.csv --signal-threshold 10 --light-threshold 200 --pixel-size 1.0 --light-amount 100 --plot result.pgm
+python flare_evaluator.py your_data.csv --signal-threshold 10 --light-threshold 200 --pixel-size 1.0 --light-amount 100 --plot result.png
 ```
 
 ### Parameters
@@ -17,6 +17,6 @@ python flare_evaluator.py your_data.csv --signal-threshold 10 --light-threshold 
 - `light-threshold`: Pixel values above this are treated as light source and excluded (default: 250)
 - `pixel-size`: Physical size of one pixel (default: 1.0)
 - `light-amount`: Amount of light for normalization (default: 1.0)
-- `plot`: Output PGM file showing the 2D target region
+- `plot`: Output image (PNG or PGM) showing the 2D target region
 
 The script prints the sum of target pixel values, the number of signal pixels, and the final flare value.
